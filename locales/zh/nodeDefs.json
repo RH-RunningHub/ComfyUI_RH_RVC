@@ -1,0 +1,98 @@
+{
+  "RunningHubRVCModelLoader": {
+    "display_name": "RunningHub RVC 模型加载器",
+    "description": "从 ComfyUI 的 models/RVC 加载并缓存音色转换模型。RVC 推理源码内置在本插件的 rvc_source 目录，模型文件放在 models/RVC。",
+    "inputs": {
+      "model_name": {
+        "display_name": "模型名称",
+        "tooltip": "RVC .pth 模型文件名。请将模型放在 ComfyUI 的 models/RVC 目录后刷新节点列表。"
+      },
+      "device": {
+        "display_name": "推理设备",
+        "tooltip": "推理设备。auto 会优先使用 cuda:0，没有 CUDA 时使用 CPU。"
+      },
+      "is_half": {
+        "display_name": "半精度",
+        "tooltip": "是否使用半精度加载模型。CPU 会自动禁用；老显卡或精度异常时可关闭。"
+      }
+    },
+    "outputs": {
+      "rvc_model": {
+        "display_name": "RVC 模型",
+        "tooltip": "已加载并缓存的 RVC 模型句柄，连接到 Voice Conversion 节点使用。"
+      }
+    }
+  },
+  "RunningHubRVCVoiceConversion": {
+    "display_name": "RunningHub RVC 音色转换",
+    "description": "使用已加载的 RVC 模型转换输入人声。可连接 ComfyUI AUDIO，也可填写音频文件路径；输出 AUDIO、保存路径和推理日志。",
+    "inputs": {
+      "rvc_model": {
+        "display_name": "RVC 模型",
+        "tooltip": "由 RunningHub RVC Model Loader 输出的已加载模型。"
+      },
+      "input_audio_path": {
+        "display_name": "输入音频路径",
+        "tooltip": "可选输入音频路径。连接 audio 输入时可留空；支持绝对路径、ComfyUI input 文件名或相对本插件目录路径。"
+      },
+      "speaker_id": {
+        "display_name": "说话人 ID",
+        "tooltip": "目标说话人 ID。单说话人模型通常为 0，多说话人模型按训练时的 ID 选择。"
+      },
+      "f0_up_key": {
+        "display_name": "升降调",
+        "tooltip": "升降调半音数。正数升调，负数降调，0 保持原调。"
+      },
+      "f0_method": {
+        "display_name": "F0 算法",
+        "tooltip": "F0 提取算法。harvest 稳定但较慢；pm 较快；rmvpe 通常质量更好但需要 models/RVC/_assets/rmvpe/rmvpe.pt。"
+      },
+      "index_path": {
+        "display_name": "Index 路径",
+        "tooltip": "可选 .index 文件路径。留空时会按模型名在 logs 和 assets/indices 下自动查找；没有 index 时仍可转换。"
+      },
+      "index_rate": {
+        "display_name": "Index 比例",
+        "tooltip": "检索特征混合比例。值越高越贴近目标音色，但可能带来咬字或噪声问题。"
+      },
+      "filter_radius": {
+        "display_name": "滤波半径",
+        "tooltip": "F0 中值滤波半径。大于 0 可减少毛刺，通常 3 即可。"
+      },
+      "resample_sr": {
+        "display_name": "重采样率",
+        "tooltip": "输出重采样率。0 表示使用模型原始采样率；设置为 16000 以上会重采样输出。"
+      },
+      "rms_mix_rate": {
+        "display_name": "响度混合",
+        "tooltip": "响度包络混合比例。1 更保留输入响度，0 更接近目标模型响度。"
+      },
+      "protect": {
+        "display_name": "保护强度",
+        "tooltip": "辅音和呼吸声保护强度。数值越大越保护原音，音色转换程度会降低。"
+      },
+      "output_prefix": {
+        "display_name": "输出前缀",
+        "tooltip": "保存到 ComfyUI output 目录的 WAV 文件名前缀。"
+      },
+      "audio": {
+        "display_name": "音频",
+        "tooltip": "可选 ComfyUI AUDIO 输入。连接后优先使用该音频，input_audio_path 可留空。"
+      }
+    },
+    "outputs": {
+      "audio": {
+        "display_name": "音频",
+        "tooltip": "转换后的 ComfyUI AUDIO，可继续连接到音频保存、视频合成或后处理节点。"
+      },
+      "output_path": {
+        "display_name": "输出路径",
+        "tooltip": "转换后 WAV 文件在 ComfyUI output 目录中的保存路径。"
+      },
+      "info": {
+        "display_name": "运行信息",
+        "tooltip": "RVC 推理日志，包含模型、设备、index 使用情况和耗时信息。"
+      }
+    }
+  }
+}

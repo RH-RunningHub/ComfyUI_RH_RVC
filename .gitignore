@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.agents/
+.codex/
+rvc_source/assets/**/*.pt
+rvc_source/assets/**/*.pth
+rvc_source/assets/**/*.ckpt
+rvc_source/assets/**/*.safetensors
+rvc_source/assets/**/*.onnx
+rvc_source/assets/**/*.index
