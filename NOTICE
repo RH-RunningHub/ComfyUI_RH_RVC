@@ -1,0 +1,8 @@
+ComfyUI RH RVC
+Copyright 2026 ComfyUI RH RVC contributors
+
+This project includes code adapted from Retrieval-based-Voice-Conversion-WebUI:
+https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI
+
+The bundled RVC inference source is based on work by the RVC Project
+contributors and remains subject to its upstream license notices.

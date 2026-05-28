@@ -1,7 +1,45 @@
 __pycache__/
 *.pyc
+*.py[cod]
 .agents/
 .codex/
+
+# Local/internal configuration
+rh_config.json
+config.json
+.env
+*.pem
+*.key
+sync.sh
+deploy.sh
+cptorh*.sh
+
+# Python environments and build artifacts
+venv/
+.venv/
+*.egg-info/
+
+# IDE and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs and temporary files
+*.log
+*.tmp
+
+# Model binaries and generated assets
+*.pth
+*.pt
+*.ckpt
+*.safetensors
+*.bin
+*.onnx
+*.index
+models/
+weights/
+save_audio/
 rvc_source/assets/**/*.pt
 rvc_source/assets/**/*.pth
 rvc_source/assets/**/*.ckpt
