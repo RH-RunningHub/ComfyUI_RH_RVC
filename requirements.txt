@@ -1,0 +1,11 @@
+av
+faiss-cpu
+fairseq==0.12.2
+ffmpeg-python
+librosa
+praat-parselmouth
+pyworld
+scipy
+soundfile
+torchcrepe
+tqdm
