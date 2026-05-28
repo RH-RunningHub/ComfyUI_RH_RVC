@@ -1,6 +1,7 @@
 __pycache__/
 *.pyc
 *.py[cod]
+.ruff_cache/
 .agents/
 .codex/
 
