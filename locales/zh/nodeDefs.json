@@ -23,17 +23,45 @@
       }
     }
   },
+  "RunningHubRVCZipModelLoader": {
+    "display_name": "RunningHub RVC ZIP 模型加载器",
+    "description": "上传或选择包含 RVC .pth 和可选 .index 的 zip，解压到 models/RVC/_uploaded 后输出 RVC 模型。",
+    "inputs": {
+      "zip_file": {
+        "display_name": "RVC 模型 ZIP",
+        "tooltip": "上传或选择包含 RVC .pth 和可选 .index 的 zip 文件。"
+      },
+      "device": {
+        "display_name": "推理设备",
+        "tooltip": "推理设备。auto 会优先使用 cuda:0，没有 CUDA 时使用 CPU。"
+      },
+      "is_half": {
+        "display_name": "半精度",
+        "tooltip": "是否使用半精度加载模型。CPU 会自动禁用；老显卡或精度异常时可关闭。"
+      }
+    },
+    "outputs": {
+      "rvc_model": {
+        "display_name": "RVC 模型",
+        "tooltip": "从 ZIP 中加载出的 RVC 模型句柄，连接到 Voice Conversion 节点使用。"
+      },
+      "info": {
+        "display_name": "运行信息",
+        "tooltip": "解压目录、模型路径和 index 自动匹配信息。"
+      }
+    }
+  },
   "RunningHubRVCVoiceConversion": {
     "display_name": "RunningHub RVC 音色转换",
-    "description": "使用已加载的 RVC 模型转换输入人声。可连接 ComfyUI AUDIO，也可填写音频文件路径；输出 AUDIO、保存路径和推理日志。",
+    "description": "使用已加载的 RVC 模型转换输入人声。输入为 ComfyUI AUDIO；输出 AUDIO 和推理日志，文件保存请连接 ComfyUI 的音频保存节点。",
     "inputs": {
       "rvc_model": {
         "display_name": "RVC 模型",
         "tooltip": "由 RunningHub RVC Model Loader 输出的已加载模型。"
       },
-      "input_audio_path": {
-        "display_name": "输入音频路径",
-        "tooltip": "可选输入音频路径。连接 audio 输入时可留空；支持绝对路径、ComfyUI input 文件名或相对本插件目录路径。"
+      "audio": {
+        "display_name": "音频",
+        "tooltip": "ComfyUI AUDIO 输入。请先用 LoadAudio、音频裁剪或音频分离节点接入音频。"
       },
       "speaker_id": {
         "display_name": "说话人 ID",
@@ -70,24 +98,12 @@
       "protect": {
         "display_name": "保护强度",
         "tooltip": "辅音和呼吸声保护强度。数值越大越保护原音，音色转换程度会降低。"
-      },
-      "output_prefix": {
-        "display_name": "输出前缀",
-        "tooltip": "保存到 ComfyUI output 目录的 WAV 文件名前缀。"
-      },
-      "audio": {
-        "display_name": "音频",
-        "tooltip": "可选 ComfyUI AUDIO 输入。连接后优先使用该音频，input_audio_path 可留空。"
       }
     },
     "outputs": {
       "audio": {
         "display_name": "音频",
         "tooltip": "转换后的 ComfyUI AUDIO，可继续连接到音频保存、视频合成或后处理节点。"
-      },
-      "output_path": {
-        "display_name": "输出路径",
-        "tooltip": "转换后 WAV 文件在 ComfyUI output 目录中的保存路径。"
       },
       "info": {
         "display_name": "运行信息",

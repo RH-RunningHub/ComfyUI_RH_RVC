@@ -3,7 +3,8 @@
 This plugin adds two ComfyUI nodes under `RunningHub/RVC`:
 
 - `RunningHub RVC Model Loader`: loads and caches an RVC `.pth` model from `models/RVC`.
-- `RunningHub RVC Voice Conversion`: converts a ComfyUI `AUDIO` input or an audio file path and returns `AUDIO`, the saved WAV path, and runtime info.
+- `RunningHub RVC ZIP Model Loader`: uploads or selects an RVC model zip, extracts `.pth` and optional `.index` files into `models/RVC/_uploaded`, then returns `RVC_MODEL`.
+- `RunningHub RVC Voice Conversion`: converts a ComfyUI `AUDIO` input and returns `AUDIO` plus runtime info. Use ComfyUI audio save nodes for file output.
 
 This wrapper includes the required RVC inference source under:
 
@@ -20,8 +21,6 @@ Required model files:
 - Optional RMVPE model for `f0_method=rmvpe`: `<ComfyUI>/models/RVC/_assets/rmvpe/rmvpe.pt`
 
 `f0_method=pm` requires `praat-parselmouth`; `f0_method=crepe` requires `torchcrepe`. The default example uses `harvest`, and `rmvpe` uses the RMVPE model from `models/RVC/_assets`.
-
-Use `input_audio_path` only when no `AUDIO` link is connected. Relative paths are resolved from the ComfyUI input directory, the bundled `rvc_source`, or this plugin directory.
 
 Example workflow:
 

@@ -1,28 +1,44 @@
 {
   "1": {
     "inputs": {
-      "model_name": "default/default.pth",
+      "zip_file": "",
       "device": "auto",
       "is_half": true
     },
-    "class_type": "RunningHubRVCModelLoader",
-    "_meta": {
-      "title": "1. Load RVC Model"
-    }
+    "class_type": "RunningHubRVCZipModelLoader"
   },
   "2": {
     "inputs": {
-      "audio": "dbb0860cb4dd7c7003b6f0406299fc7c0febc5c6a990e1c670d29b763e84e7ed.wav",
-      "audioUI": ""
+      "audio": "None"
     },
-    "class_type": "LoadAudio",
-    "_meta": {
-      "title": "2. Load Source Voice"
-    }
+    "class_type": "LoadAudio"
   },
   "3": {
     "inputs": {
-      "input_audio_path": "",
+      "audio": [
+        "2",
+        0
+      ],
+      "start_time": 0,
+      "end_time": 20
+    },
+    "class_type": "AudioTrim"
+  },
+  "4": {
+    "inputs": {
+      "audio": [
+        "3",
+        0
+      ]
+    },
+    "class_type": "AudioSeparation"
+  },
+  "5": {
+    "inputs": {
+      "audio": [
+        "4",
+        3
+      ],
       "speaker_id": 0,
       "f0_up_key": 0,
       "f0_method": "harvest",
@@ -32,46 +48,46 @@
       "resample_sr": 0,
       "rms_mix_rate": 1,
       "protect": 0.33,
-      "output_prefix": "rvc/converted",
       "rvc_model": [
         "1",
         0
-      ],
-      "audio": [
-        "2",
-        0
       ]
     },
-    "class_type": "RunningHubRVCVoiceConversion",
-    "_meta": {
-      "title": "3. Convert Voice"
-    }
+    "class_type": "RunningHubRVCVoiceConversion"
   },
-  "4": {
+  "6": {
+    "inputs": {
+      "stem_a": [
+        "5",
+        0
+      ],
+      "stem_b": [
+        "4",
+        0
+      ],
+      "stem_c": [
+        "4",
+        1
+      ],
+      "stem_d": [
+        "4",
+        2
+      ],
+      "gain_a": 1,
+      "gain_b": 1,
+      "gain_c": 1,
+      "gain_d": 1
+    },
+    "class_type": "AFL:AudioMixStems"
+  },
+  "7": {
     "inputs": {
       "filename_prefix": "audio/RVC_",
-      "audioUI": "",
       "audio": [
-        "3",
+        "6",
         0
       ]
     },
-    "class_type": "SaveAudio",
-    "_meta": {
-      "title": "4. Save Converted Audio"
-    }
-  },
-  "5": {
-    "inputs": {
-      "audioUI": "",
-      "audio": [
-        "3",
-        0
-      ]
-    },
-    "class_type": "PreviewAudio",
-    "_meta": {
-      "title": "5. Preview Converted Audio"
-    }
+    "class_type": "SaveAudio"
   }
 }
