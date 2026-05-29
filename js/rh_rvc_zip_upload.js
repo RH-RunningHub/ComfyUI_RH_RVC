@@ -12,16 +12,17 @@ async function uploadZipModel(file) {
     }
 
     const form = new FormData();
-    form.append("file", file);
+    form.append("image", file);
+    form.append("type", "input");
 
-    const response = await api.fetchApi("/extensions/ComfyUI_RH_RVC/upload_zip_model", {
+    const response = await api.fetchApi("/upload/image", {
         method: "POST",
         body: form,
     });
 
     const result = await response.json().catch(() => ({}));
-    if (!response.ok || !result.success) {
-        throw new Error(result.error || `上传失败: ${response.status}`);
+    if (!response.ok) {
+        throw new Error(result.error || result.msg || `上传失败: ${response.status}`);
     }
     return result;
 }

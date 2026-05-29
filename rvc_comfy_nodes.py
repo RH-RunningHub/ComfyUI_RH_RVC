@@ -96,28 +96,34 @@ def _resolve_zip_in_input(zip_file):
         raise ValueError("请先上传 RVC 模型 zip 文件。")
 
     input_dir = _input_directory()
+    input_path = input_dir.resolve()
     if folder_paths is not None:
         try:
             name, base_dir = folder_paths.annotated_filepath(text)
         except Exception:
             name, base_dir = text, None
-        if base_dir is None:
-            base_dir = str(input_dir)
+        name = str(name or "").replace("\\", "/")
+        if Path(name).is_absolute() or name.startswith("/") or ".." in Path(name).parts:
+            raise ValueError(f"zip 路径不安全: {zip_file}")
+        if Path(name).suffix.lower() != ".zip":
+            raise ValueError(f"只支持 RVC 模型 zip 文件: {zip_file}")
+        if base_dir is not None:
+            try:
+                Path(base_dir).resolve().relative_to(input_path)
+            except ValueError as exc:
+                raise ValueError("只支持从 ComfyUI input 目录加载 zip 文件。") from exc
+
+        if not folder_paths.exists_annotated_filepath(text):
+            raise FileNotFoundError(f"找不到上传的 RVC 模型 zip: {zip_file}")
+        zip_path = Path(folder_paths.get_annotated_filepath(text, str(input_dir))).resolve()
     else:
-        name, base_dir = text, str(input_dir)
+        name = text.replace("\\", "/")
+        if Path(name).is_absolute() or name.startswith("/") or ".." in Path(name).parts:
+            raise ValueError(f"zip 路径不安全: {zip_file}")
+        if Path(name).suffix.lower() != ".zip":
+            raise ValueError(f"只支持 RVC 模型 zip 文件: {zip_file}")
+        zip_path = (input_path / name).resolve()
 
-    name = str(name or "").replace("\\", "/")
-    if Path(name).is_absolute() or name.startswith("/") or ".." in Path(name).parts:
-        raise ValueError(f"zip 路径不安全: {zip_file}")
-
-    base_path = Path(base_dir).resolve()
-    input_path = input_dir.resolve()
-    try:
-        base_path.relative_to(input_path)
-    except ValueError as exc:
-        raise ValueError("只支持从 ComfyUI input 目录加载 zip 文件。") from exc
-
-    zip_path = (base_path / name).resolve()
     try:
         zip_path.relative_to(input_path)
     except ValueError as exc:
@@ -126,6 +132,8 @@ def _resolve_zip_in_input(zip_file):
         raise ValueError(f"只支持 RVC 模型 zip 文件: {zip_file}")
     if not zip_path.exists():
         raise FileNotFoundError(f"找不到上传的 RVC 模型 zip: {zip_file}")
+    if zip_path.stat().st_size > MAX_ZIP_UPLOAD_BYTES:
+        raise ValueError("RVC 模型 zip 超过 150MB 限制。")
     return zip_path
 
 
