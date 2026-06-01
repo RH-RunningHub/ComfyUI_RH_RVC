@@ -5,13 +5,15 @@
 
 ![License](https://img.shields.io/badge/License-Apache%202.0-green)
 
-ComfyUI custom nodes for Retrieval-based Voice Conversion (RVC). This plugin wraps inference code from [Retrieval-based-Voice-Conversion-WebUI](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI) and exposes model loading, ZIP model upload, and voice conversion nodes in ComfyUI.
+ComfyUI custom nodes for Retrieval-based Voice Conversion (RVC). This plugin wraps inference and training code from [Retrieval-based-Voice-Conversion-WebUI](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI) and exposes model loading, ZIP model upload, voice conversion, and one-click training nodes in ComfyUI.
 
 ## Features
 
 - Load existing RVC `.pth` models from `ComfyUI/models/RVC`.
 - Upload an RVC model ZIP from the ComfyUI node UI and extract `.pth` plus optional `.index` files into `ComfyUI/models/RVC/_uploaded`.
 - Convert ComfyUI `AUDIO` inputs and return ComfyUI `AUDIO` outputs for downstream save, mix, or video nodes.
+- Run RVC preprocessing, F0/feature extraction, model training, and index training from a local dataset folder.
+- Save training outputs as `<save_name>.pth`, `<save_name>.index`, and `<save_name>.zip` under `ComfyUI/output/RVC/<save_name>/`.
 - Use HuBERT from `ComfyUI/models/RVC/_assets/hubert`.
 - Support optional RMVPE pitch extraction with `ComfyUI/models/RVC/_assets/rmvpe/rmvpe.pt`.
 - Keep model binaries outside the plugin repository.
@@ -67,6 +69,7 @@ Required files:
 | HuBERT | Yes | `ComfyUI/models/RVC/_assets/hubert/hubert_base.pt` | Content feature model. |
 | RVC `.index` | Optional | Same folder as `.pth` or any subfolder under `models/RVC` | Retrieval index for better timbre matching. |
 | RMVPE | Optional | `ComfyUI/models/RVC/_assets/rmvpe/rmvpe.pt` | Required only when `f0_method=rmvpe`. |
+| Pretrained G/D | Optional | `ComfyUI/models/RVC/_assets/pretrained` or `_assets/pretrained_v2` | Training auto-detects these paths when the pretrained inputs are empty; missing files fall back to training from scratch. |
 
 ### Download Methods
 
@@ -125,6 +128,7 @@ Bring your own RVC `.pth` and optional `.index` voice model files. The `.pth` an
 Import this workflow into ComfyUI:
 
 - [`examples/rvc_voice_conversion_basic_api.json`](examples/rvc_voice_conversion_basic_api.json)
+- [`examples/rvc_training_basic_api.json`](examples/rvc_training_basic_api.json)
 
 The workflow demonstrates:
 
@@ -133,6 +137,24 @@ The workflow demonstrates:
 3. Convert the vocal stem with RVC.
 4. Mix the converted vocal back with the other stems.
 5. Save the final audio with a standard audio save node.
+
+The training example uses `RunningHub RVC One-Click Train`. Training data can be provided in two ways:
+
+1. `trainset_dir`: dataset audio folder, empty by default; if filled, it takes priority.
+2. `audio`: optional audio input, used when `trainset_dir` is empty. It accepts ComfyUI `AUDIO`, lists of `AUDIO`, audio file paths, or path lists from upstream nodes.
+
+`trainset_dir` examples:
+
+- Absolute path: `/workspace/ComfyUI/input/my_rvc_trainset`
+- Relative to ComfyUI input: `my_rvc_trainset`
+
+The `save_name` input controls the final output file names. A completed run writes:
+
+```text
+ComfyUI/output/RVC/<save_name>/<save_name>.pth
+ComfyUI/output/RVC/<save_name>/<save_name>.index
+ComfyUI/output/RVC/<save_name>/<save_name>.zip
+```
 
 ## Node Reference
 
@@ -149,6 +171,17 @@ Upload limit: 150 MB per ZIP.
 ### RunningHub RVC Voice Conversion
 
 Converts a ComfyUI `AUDIO` input with an `RVC_MODEL` and returns converted `AUDIO` plus runtime information. Use ComfyUI audio save nodes for file output.
+
+### RunningHub RVC One-Click Train
+
+Runs the complete RVC training pipeline from a dataset folder or optional audio input. The node returns `info`, which includes output `.pth`, `.index`, `.zip` paths plus a log summary. It also reports the final `.zip` as a ComfyUI output file so RunningHub post-processing can upload it to COS. `save_name` controls the final output files; `experiment_name` controls the training log and intermediate folder.
+
+Notes:
+
+- `f0_method=rmvpe` requires `ComfyUI/models/RVC/_assets/rmvpe/rmvpe.pt`; use `harvest` if RMVPE is not prepared.
+- Training requires HuBERT at `ComfyUI/models/RVC/_assets/hubert/hubert_base.pt`.
+- Runtime and VRAM use depend on dataset length, `batch_size`, `total_epoch`, and GPU.
+- The output ZIP can be used directly with the ZIP Model Loader and contains same-name `.pth` plus optional `.index`.
 
 ## License
 

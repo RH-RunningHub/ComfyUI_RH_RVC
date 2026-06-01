@@ -1,8 +1,8 @@
 [project]
 name = "rh_rvc"
-description = "ComfyUI custom nodes for Retrieval-based Voice Conversion (RVC), including model loading, ZIP upload, and voice conversion."
+description = "ComfyUI custom nodes for Retrieval-based Voice Conversion (RVC), including model loading, ZIP upload, voice conversion, and training."
 version = "260601.10.33"
-license = "Apache-2.0" 
+license = {file = "LICENSE"}
 # classifiers = [
 #     # For OS-independent nodes (works on all operating systems)
 #     "Operating System :: OS Independent",
@@ -20,7 +20,7 @@ license = "Apache-2.0"
 #     "Environment :: GPU :: Apple Metal",    # Apple Metal support
 # ]
 
-dependencies = ["av", "faiss-cpu", "fairseq==0.12.2", "ffmpeg-python", "librosa", "praat-parselmouth", "pyworld", "scipy", "soundfile", "torchcrepe", "tqdm"]
+dependencies = ["av", "faiss-cpu", "fairseq>=0.12.0", "ffmpeg-python", "librosa", "praat-parselmouth", "pyworld", "scipy", "scikit-learn", "soundfile", "tensorboard", "torchcrepe", "tqdm"]
 
 [project.urls]
 Repository = "https://github.com/RH-RunningHub/ComfyUI_RH_RVC"

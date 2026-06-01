@@ -5,13 +5,15 @@
 
 ![License](https://img.shields.io/badge/License-Apache%202.0-green)
 
-这是一个用于 Retrieval-based Voice Conversion (RVC) 的 ComfyUI 自定义节点插件。插件封装了 [Retrieval-based-Voice-Conversion-WebUI](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI) 的推理代码，并在 ComfyUI 中提供模型加载、ZIP 模型上传和音频变声节点。
+这是一个用于 Retrieval-based Voice Conversion (RVC) 的 ComfyUI 自定义节点插件。插件封装了 [Retrieval-based-Voice-Conversion-WebUI](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI) 的推理和训练代码，并在 ComfyUI 中提供模型加载、ZIP 模型上传、音频变声和一键训练节点。
 
 ## 功能特点
 
 - 从 `ComfyUI/models/RVC` 加载已有 RVC `.pth` 模型。
 - 在 ComfyUI 节点界面上传 RVC 模型 ZIP，并把 `.pth` 与可选 `.index` 解压到 `ComfyUI/models/RVC/_uploaded`。
 - 接收 ComfyUI `AUDIO` 输入，输出转换后的 ComfyUI `AUDIO`，可继续连接保存、混音或视频节点。
+- 从本地训练集目录执行 RVC 预处理、F0/特征提取、模型训练和索引训练。
+- 训练节点会把 `<save_name>.pth`、`<save_name>.index` 和 `<save_name>.zip` 保存到 `ComfyUI/output/RVC/<save_name>/`。
 - 从 `ComfyUI/models/RVC/_assets/hubert` 使用 HuBERT。
 - 可选支持 RMVPE 音高提取，模型路径为 `ComfyUI/models/RVC/_assets/rmvpe/rmvpe.pt`。
 - 模型二进制文件不放进插件仓库。
@@ -67,6 +69,7 @@ ComfyUI/
 | HuBERT | 是 | `ComfyUI/models/RVC/_assets/hubert/hubert_base.pt` | 内容特征模型。 |
 | RVC `.index` | 可选 | 与 `.pth` 同目录，或 `models/RVC` 下任意子目录 | 用于改善音色匹配。 |
 | RMVPE | 可选 | `ComfyUI/models/RVC/_assets/rmvpe/rmvpe.pt` | 仅在 `f0_method=rmvpe` 时需要。 |
+| 预训练 G/D | 可选 | `ComfyUI/models/RVC/_assets/pretrained` 或 `_assets/pretrained_v2` | 训练时留空会自动尝试这些路径，缺失则从头训练。 |
 
 ### 下载方式
 
@@ -125,6 +128,7 @@ RVC `.pth` 和可选 `.index` 声音模型需要你自行准备。`.pth` 与 `.i
 导入以下工作流到 ComfyUI：
 
 - [`examples/rvc_voice_conversion_basic_api.json`](examples/rvc_voice_conversion_basic_api.json)
+- [`examples/rvc_training_basic_api.json`](examples/rvc_training_basic_api.json)
 
 该工作流演示：
 
@@ -133,6 +137,24 @@ RVC `.pth` 和可选 `.index` 声音模型需要你自行准备。`.pth` 与 `.i
 3. 使用 RVC 转换人声 stem。
 4. 把转换后的人声与其他 stems 混合。
 5. 使用标准音频保存节点保存最终音频。
+
+训练示例工作流使用 `RunningHub RVC One-Click Train`。训练数据有两种输入方式：
+
+1. `trainset_dir`：训练音频目录，默认留空；填写时优先使用该目录。
+2. `audio`：可选音频输入，`trainset_dir` 为空时使用。支持 ComfyUI `AUDIO`、`AUDIO` 列表、音频文件路径或路径列表，可连接能输出音频/路径列表的上游节点。
+
+`trainset_dir` 示例：
+
+- 绝对路径：`/workspace/ComfyUI/input/my_rvc_trainset`
+- ComfyUI input 相对路径：`my_rvc_trainset`
+
+训练节点的 `save_name` 会决定输出文件名。完成后会生成：
+
+```text
+ComfyUI/output/RVC/<save_name>/<save_name>.pth
+ComfyUI/output/RVC/<save_name>/<save_name>.index
+ComfyUI/output/RVC/<save_name>/<save_name>.zip
+```
 
 ## 节点说明
 
@@ -149,6 +171,17 @@ RVC `.pth` 和可选 `.index` 声音模型需要你自行准备。`.pth` 与 `.i
 ### RunningHub RVC Voice Conversion
 
 使用 `RVC_MODEL` 转换 ComfyUI `AUDIO` 输入，返回转换后的 `AUDIO` 和运行信息。文件输出请连接 ComfyUI 的音频保存节点。
+
+### RunningHub RVC One-Click Train
+
+从训练集目录或可选音频输入执行完整 RVC 训练流程，返回 `info`，其中包含 `.pth`、`.index`、`.zip` 路径和日志摘要。节点还会把最终 `.zip` 作为 ComfyUI 输出文件上报，便于 RunningHub 后处理上传到 COS。`save_name` 是最终输出文件名；`experiment_name` 是训练日志和中间产物目录名。
+
+注意事项：
+
+- `f0_method=rmvpe` 需要 `ComfyUI/models/RVC/_assets/rmvpe/rmvpe.pt`，否则可先用 `harvest`。
+- 训练需要 HuBERT：`ComfyUI/models/RVC/_assets/hubert/hubert_base.pt`。
+- 训练耗时和显存占用取决于训练集长度、`batch_size`、`total_epoch` 和 GPU。
+- 输出 zip 可直接作为 ZIP Model Loader 的输入包，里面包含同名 `.pth` 和可选 `.index`。
 
 ## 许可证
 

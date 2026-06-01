@@ -152,16 +152,16 @@ def run(rank, n_gpus, hps, logger: logging.Logger):
         collate_fn = TextAudioCollateMultiNSFsid()
     else:
         collate_fn = TextAudioCollate()
-    train_loader = DataLoader(
-        train_dataset,
-        num_workers=4,
-        shuffle=False,
-        pin_memory=True,
-        collate_fn=collate_fn,
-        batch_sampler=train_sampler,
-        persistent_workers=True,
-        prefetch_factor=8,
-    )
+    train_loader_kwargs = {
+        "num_workers": int(os.environ.get("RVC_TRAIN_NUM_WORKERS", "0")),
+        "shuffle": False,
+        "pin_memory": True,
+        "collate_fn": collate_fn,
+        "batch_sampler": train_sampler,
+    }
+    if train_loader_kwargs["num_workers"] > 0:
+        train_loader_kwargs.update({"persistent_workers": True, "prefetch_factor": 2})
+    train_loader = DataLoader(train_dataset, **train_loader_kwargs)
     if hps.if_f0 == 1:
         net_g = RVC_Model_f0(
             hps.data.filter_length // 2 + 1,
@@ -610,6 +610,8 @@ def train_and_evaluate(
                         epoch,
                         hps.version,
                         hps,
+                        hps.export_weights_dir,
+                        hps.name + "_e%s_s%s" % (epoch, global_step),
                     ),
                 )
             )
@@ -627,7 +629,15 @@ def train_and_evaluate(
             "saving final ckpt:%s"
             % (
                 savee(
-                    ckpt, hps.sample_rate, hps.if_f0, hps.name, epoch, hps.version, hps
+                    ckpt,
+                    hps.sample_rate,
+                    hps.if_f0,
+                    hps.name,
+                    epoch,
+                    hps.version,
+                    hps,
+                    hps.export_weights_dir,
+                    hps.export_weight_name or hps.name,
                 )
             )
         )

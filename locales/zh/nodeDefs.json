@@ -110,5 +110,97 @@
         "tooltip": "RVC 推理日志，包含模型、设备、index 使用情况和耗时信息。"
       }
     }
+  },
+  "RunningHubRVCOneClickTrain": {
+    "display_name": "RunningHub RVC 一键训练",
+    "description": "从本地训练音频目录执行 RVC 预处理、F0/特征提取、模型训练和可选 FAISS 索引训练，导出可推理模型、索引和 ZIP 到 ComfyUI output。",
+    "inputs": {
+      "trainset_dir": {
+        "display_name": "训练集目录",
+        "tooltip": "训练音频目录。默认留空；填写时优先使用该目录。可填绝对路径或 ComfyUI input 下的相对目录。"
+      },
+      "audio": {
+        "display_name": "音频输入",
+        "tooltip": "可选音频输入。trainset_dir 为空时使用；支持 ComfyUI AUDIO、AUDIO 列表、音频文件路径或路径列表。"
+      },
+      "experiment_name": {
+        "display_name": "实验名",
+        "tooltip": "实验名。会用于 rvc_source/logs/<实验名> 存放训练日志和中间产物。"
+      },
+      "save_name": {
+        "display_name": "保存文件名",
+        "tooltip": "保存文件名。最终会在 ComfyUI output/RVC/<save_name>/ 下生成 <save_name>.pth、<save_name>.index 和 <save_name>.zip。"
+      },
+      "version": {
+        "display_name": "模型版本",
+        "tooltip": "RVC 模型版本。v2 使用 768 维特征；v1 使用 256 维特征。"
+      },
+      "sample_rate": {
+        "display_name": "采样率",
+        "tooltip": "训练采样率。40k 兼容性最好；48k 高频更完整但更吃资源；32k 仅 v2 常用。"
+      },
+      "use_f0": {
+        "display_name": "启用 F0",
+        "tooltip": "是否训练带音高引导的模型。唱歌和保留旋律通常开启；纯说话可按需求关闭。"
+      },
+      "f0_method": {
+        "display_name": "F0 算法",
+        "tooltip": "训练集音高提取算法。rmvpe 质量通常更好但需要 models/RVC/_assets/rmvpe/rmvpe.pt；harvest 稳定但较慢。"
+      },
+      "speaker_id": {
+        "display_name": "说话人 ID",
+        "tooltip": "写入训练 filelist 的说话人 ID。单人模型通常使用 0。"
+      },
+      "total_epoch": {
+        "display_name": "总训练轮数",
+        "tooltip": "总训练轮数。小数据集常用 20-100；数据越多可适当增加。"
+      },
+      "save_every_epoch": {
+        "display_name": "保存间隔",
+        "tooltip": "每多少 epoch 保存一次 G/D checkpoint。"
+      },
+      "batch_size": {
+        "display_name": "批大小",
+        "tooltip": "训练 batch size。显存不足时调小；调到 1 仍 OOM 时需要更大显存。"
+      },
+      "cpu_processes": {
+        "display_name": "CPU 进程数",
+        "tooltip": "训练集预处理和部分 F0 提取使用的 CPU 进程数。"
+      },
+      "is_half": {
+        "display_name": "半精度",
+        "tooltip": "特征提取和训练是否启用半精度。CPU/MPS 环境或数值异常时关闭。"
+      },
+      "train_index": {
+        "display_name": "训练索引",
+        "tooltip": "训练结束后是否基于特征构建 FAISS 检索索引。推理时 index_rate 大于 0 通常需要它。"
+      },
+      "pretrained_G": {
+        "display_name": "预训练 G",
+        "tooltip": "可选预训练 Generator 路径。留空会自动尝试 assets/pretrained(_v2) 下的默认文件；不存在则从头训练。"
+      },
+      "pretrained_D": {
+        "display_name": "预训练 D",
+        "tooltip": "可选预训练 Discriminator 路径。留空会自动尝试 assets/pretrained(_v2) 下的默认文件；不存在则从头训练。"
+      },
+      "save_latest_only": {
+        "display_name": "只保留最新",
+        "tooltip": "是否只保留 latest G/D checkpoint。开启可减少磁盘占用。"
+      },
+      "cache_dataset_in_gpu": {
+        "display_name": "缓存到显存",
+        "tooltip": "是否把训练集缓存进显存。10 分钟以下小数据可加速，大数据容易显存不足。"
+      },
+      "save_every_weights": {
+        "display_name": "每次导出小模型",
+        "tooltip": "是否每次保存 checkpoint 时额外导出可推理的小模型。关闭时仍会在训练结束导出最终模型。"
+      }
+    },
+    "outputs": {
+      "info": {
+        "display_name": "运行信息",
+        "tooltip": "训练流程日志摘要和生成文件位置。"
+      }
+    }
   }
 }

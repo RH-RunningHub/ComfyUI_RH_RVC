@@ -10,7 +10,7 @@ from i18n.i18n import I18nAuto
 i18n = I18nAuto()
 
 
-def savee(ckpt, sr, if_f0, name, epoch, version, hps):
+def savee(ckpt, sr, if_f0, name, epoch, version, hps, output_dir=None, output_name=None):
     try:
         opt = OrderedDict()
         opt["weight"] = {}
@@ -42,7 +42,10 @@ def savee(ckpt, sr, if_f0, name, epoch, version, hps):
         opt["sr"] = sr
         opt["f0"] = if_f0
         opt["version"] = version
-        torch.save(opt, "assets/weights/%s.pth" % name)
+        output_dir = output_dir or "assets/weights"
+        output_name = output_name or name
+        os.makedirs(output_dir, exist_ok=True)
+        torch.save(opt, os.path.join(output_dir, "%s.pth" % output_name))
         return "Success."
     except:
         return traceback.format_exc()

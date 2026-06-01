@@ -1,0 +1,55 @@
+{
+  "1": {
+    "inputs": {
+      "trainset_dir": "",
+      "experiment_name": "demo_rvc_train",
+      "save_name": "demo_rvc_model",
+      "version": "v2",
+      "sample_rate": "40k",
+      "use_f0": true,
+      "f0_method": "harvest",
+      "speaker_id": 0,
+      "total_epoch": 20,
+      "save_every_epoch": 10,
+      "batch_size": 4,
+      "cpu_processes": 4,
+      "is_half": true,
+      "train_index": true,
+      "pretrained_G": "",
+      "pretrained_D": "",
+      "save_latest_only": true,
+      "cache_dataset_in_gpu": false,
+      "save_every_weights": false,
+      "audio": [
+        "3",
+        4
+      ]
+    },
+    "class_type": "RunningHubRVCOneClickTrain",
+    "_meta": {
+      "title": "RunningHub RVC One-Click Train"
+    }
+  },
+  "2": {
+    "inputs": {
+      "preview": "",
+      "source": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "PreviewAny",
+    "_meta": {
+      "title": "Preview as Text"
+    }
+  },
+  "3": {
+    "inputs": {
+      "zip_file": "661af88cd7b76ab52f4c10730bc6ae4ecb217cd463c6d9449b6692df351dd474.zip"
+    },
+    "class_type": "HAIGC_LoadImagesFromZip",
+    "_meta": {
+      "title": "加载zip文件"
+    }
+  }
+}

@@ -215,6 +215,14 @@ def latest_checkpoint_path(dir_path, regex="G_*.pth"):
     return x
 
 
+def _canvas_to_rgb_array(canvas):
+    if hasattr(canvas, "tostring_rgb"):
+        data = np.frombuffer(canvas.tostring_rgb(), dtype=np.uint8)
+        return data.reshape(canvas.get_width_height()[::-1] + (3,))
+    data = np.asarray(canvas.buffer_rgba())
+    return data[:, :, :3].copy()
+
+
 def plot_spectrogram_to_numpy(spectrogram):
     global MATPLOTLIB_FLAG
     if not MATPLOTLIB_FLAG:
@@ -235,8 +243,7 @@ def plot_spectrogram_to_numpy(spectrogram):
     plt.tight_layout()
 
     fig.canvas.draw()
-    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    data = _canvas_to_rgb_array(fig.canvas)
     plt.close()
     return data
 
@@ -266,8 +273,7 @@ def plot_alignment_to_numpy(alignment, info=None):
     plt.tight_layout()
 
     fig.canvas.draw()
-    data = np.fromstring(fig.canvas.tostring_rgb(), dtype=np.uint8, sep="")
-    data = data.reshape(fig.canvas.get_width_height()[::-1] + (3,))
+    data = _canvas_to_rgb_array(fig.canvas)
     plt.close()
     return data
 
@@ -363,6 +369,20 @@ def get_hparams(init=True):
         required=True,
         help="if caching the dataset in GPU memory, 1 or 0",
     )
+    parser.add_argument(
+        "-od",
+        "--export_weights_dir",
+        type=str,
+        default="",
+        help="directory for exported inference-ready pth files",
+    )
+    parser.add_argument(
+        "-on",
+        "--export_weight_name",
+        type=str,
+        default="",
+        help="file stem for the final exported inference-ready pth",
+    )
 
     args = parser.parse_args()
     name = args.experiment_dir
@@ -387,6 +407,8 @@ def get_hparams(init=True):
     hparams.if_latest = args.if_latest
     hparams.save_every_weights = args.save_every_weights
     hparams.if_cache_data_in_gpu = args.if_cache_data_in_gpu
+    hparams.export_weights_dir = args.export_weights_dir
+    hparams.export_weight_name = args.export_weight_name
     hparams.data.training_files = "%s/filelist.txt" % experiment_dir
     return hparams
 
