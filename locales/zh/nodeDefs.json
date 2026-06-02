@@ -121,7 +121,7 @@
       },
       "audio": {
         "display_name": "音频输入",
-        "tooltip": "可选音频输入。trainset_dir 为空时使用；支持 ComfyUI AUDIO、AUDIO 列表、音频文件路径或路径列表。"
+        "tooltip": "可选音频输入。trainset_dir 为空时使用；支持 ComfyUI AUDIO、AUDIO 列表、音频文件路径或路径列表。建议接入干净单人声；带伴奏时先做人声分离。"
       },
       "experiment_name": {
         "display_name": "实验名",
@@ -194,6 +194,14 @@
       "save_every_weights": {
         "display_name": "每次导出小模型",
         "tooltip": "是否每次保存 checkpoint 时额外导出可推理的小模型。关闭时仍会在训练结束导出最终模型。"
+      },
+      "audio_auto_clean": {
+        "display_name": "自动清洗音频",
+        "tooltip": "训练前自动转单声道、去静音、过滤过短或低音量片段，并做峰值归一化。建议保持开启；带伴奏音频仍需先做人声分离。"
+      },
+      "auto_extract_vocals": {
+        "display_name": "自动提取人声",
+        "tooltip": "训练前先用 Demucs/HDEMUCS 提取人声。仅在素材带伴奏时开启；干声训练集建议关闭以避免额外失真。"
       }
     },
     "outputs": {

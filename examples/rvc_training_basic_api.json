@@ -20,6 +20,8 @@
       "save_latest_only": true,
       "cache_dataset_in_gpu": false,
       "save_every_weights": false,
+      "audio_auto_clean": true,
+      "auto_extract_vocals": true,
       "audio": [
         "3",
         4

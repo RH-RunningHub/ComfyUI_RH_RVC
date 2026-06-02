@@ -143,6 +143,8 @@ RVC `.pth` 和可选 `.index` 声音模型需要你自行准备。`.pth` 与 `.i
 1. `trainset_dir`：训练音频目录，默认留空；填写时优先使用该目录。
 2. `audio`：可选音频输入，`trainset_dir` 为空时使用。支持 ComfyUI `AUDIO`、`AUDIO` 列表、音频文件路径或路径列表，可连接能输出音频/路径列表的上游节点。
 
+训练节点默认开启 `audio_auto_clean`，会在训练前自动转单声道、去静音、过滤过短/过低音量片段，并做峰值归一化。如果训练素材带伴奏，可开启 `auto_extract_vocals`，节点会先用 Demucs/HDEMUCS 提取人声；干声训练集建议关闭，避免分离造成额外失真。多说话人、重混响或噪声很重的素材仍建议先在上游清理，只保留干净单人声后再训练。
+
 `trainset_dir` 示例：
 
 - 绝对路径：`/workspace/ComfyUI/input/my_rvc_trainset`

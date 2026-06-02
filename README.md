@@ -143,6 +143,8 @@ The training example uses `RunningHub RVC One-Click Train`. Training data can be
 1. `trainset_dir`: dataset audio folder, empty by default; if filled, it takes priority.
 2. `audio`: optional audio input, used when `trainset_dir` is empty. It accepts ComfyUI `AUDIO`, lists of `AUDIO`, audio file paths, or path lists from upstream nodes.
 
+The training node enables `audio_auto_clean` by default. It converts training audio to mono, trims silence, skips clips that are too short or too quiet, and peak-normalizes the kept clips before RVC preprocessing. If the source has backing music, enable `auto_extract_vocals` to run Demucs/HDEMUCS vocal extraction first; keep it disabled for dry vocal datasets to avoid extra separation artifacts. Multi-speaker, heavy-reverb, or noisy sources should still be cleaned upstream so training sees clean single-speaker vocals.
+
 `trainset_dir` examples:
 
 - Absolute path: `/workspace/ComfyUI/input/my_rvc_trainset`

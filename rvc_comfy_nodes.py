@@ -71,6 +71,14 @@ TRAINSET_AUDIO_EXTENSIONS = {
 }
 SAMPLE_RATE_VALUES = {"32k": 32000, "40k": 40000, "48k": 48000}
 TRAIN_FEATURE_DIM = {"v1": 256, "v2": 768}
+TRAIN_AUDIO_TARGET_PEAK = 0.89
+TRAIN_AUDIO_MIN_DURATION = 0.6
+TRAIN_AUDIO_MIN_PEAK = 10 ** (-50 / 20)
+TRAIN_AUDIO_MIN_RMS = 10 ** (-70 / 20)
+TRAIN_AUDIO_TRIM_TOP_DB = 35.0
+TRAIN_AUDIO_MAX_SKIP_EXAMPLES = 8
+_VOCAL_SEPARATION_MODEL = None
+_VOCAL_SEPARATION_SAMPLE_RATE = None
 
 
 @dataclass
@@ -608,7 +616,140 @@ def _resolve_training_dataset(trainset_dir):
     return path
 
 
-def _copy_audio_path_to_dataset(path, target_dir, copied):
+def _audio_array_to_clean_mono(samples, sample_rate):
+    samples = np.asarray(samples, dtype=np.float32)
+    if samples.size == 0:
+        return None, "empty"
+    if samples.ndim == 2:
+        if samples.shape[0] <= 8 and samples.shape[0] < samples.shape[1]:
+            samples = samples.T
+        samples = np.mean(samples, axis=1)
+    elif samples.ndim > 2:
+        samples = samples.reshape(-1)
+    samples = np.nan_to_num(samples, nan=0.0, posinf=0.0, neginf=0.0)
+
+    peak = float(np.max(np.abs(samples))) if samples.size else 0.0
+    rms = float(np.sqrt(np.mean(np.square(samples)))) if samples.size else 0.0
+    if peak < TRAIN_AUDIO_MIN_PEAK or rms < TRAIN_AUDIO_MIN_RMS:
+        return None, f"too_quiet peak={peak:.6g} rms={rms:.6g}"
+
+    try:
+        import librosa
+
+        trimmed, _ = librosa.effects.trim(samples, top_db=TRAIN_AUDIO_TRIM_TOP_DB)
+        if trimmed.size > 0:
+            samples = trimmed.astype(np.float32, copy=False)
+    except Exception:
+        pass
+
+    duration = samples.shape[0] / max(int(sample_rate), 1)
+    if duration < TRAIN_AUDIO_MIN_DURATION:
+        return None, f"too_short duration={duration:.2f}s"
+
+    peak = float(np.max(np.abs(samples))) if samples.size else 0.0
+    if peak < TRAIN_AUDIO_MIN_PEAK:
+        return None, f"too_quiet_after_trim peak={peak:.6g}"
+    gain = min(TRAIN_AUDIO_TARGET_PEAK / peak, 32.0)
+    samples = np.clip(samples * gain, -1.0, 1.0).astype(np.float32, copy=False)
+    return samples, "ok"
+
+
+def _extract_training_vocals(samples, sample_rate):
+    global _VOCAL_SEPARATION_MODEL, _VOCAL_SEPARATION_SAMPLE_RATE
+    samples = np.asarray(samples, dtype=np.float32)
+    if samples.size == 0:
+        return samples, sample_rate
+    if samples.ndim == 1:
+        waveform = torch.from_numpy(samples[None, :])
+    elif samples.ndim == 2:
+        if samples.shape[0] <= 8 and samples.shape[0] < samples.shape[1]:
+            waveform = torch.from_numpy(samples)
+        else:
+            waveform = torch.from_numpy(samples.T)
+    else:
+        waveform = torch.from_numpy(samples.reshape(1, -1))
+    if waveform.shape[0] == 1:
+        waveform = waveform.repeat(2, 1)
+    elif waveform.shape[0] > 2:
+        waveform = waveform[:2, :]
+
+    try:
+        from torchaudio.pipelines import HDEMUCS_HIGH_MUSDB_PLUS
+        from torchaudio.transforms import Resample
+    except Exception as exc:
+        raise RuntimeError("自动人声分离需要 torchaudio 和 HDEMUCS_HIGH_MUSDB_PLUS。") from exc
+
+    bundle = HDEMUCS_HIGH_MUSDB_PLUS
+    target_sr = int(bundle.sample_rate)
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    if _VOCAL_SEPARATION_MODEL is None:
+        _VOCAL_SEPARATION_MODEL = bundle.get_model().eval().to(device)
+        _VOCAL_SEPARATION_SAMPLE_RATE = target_sr
+    model = _VOCAL_SEPARATION_MODEL
+
+    waveform = waveform.float().unsqueeze(0).to(device)
+    if int(sample_rate) != target_sr:
+        waveform = Resample(int(sample_rate), target_sr).to(device)(waveform)
+
+    max_frames = target_sr * 30
+    vocals = []
+    sources = list(getattr(model, "sources", []))
+    try:
+        vocal_idx = sources.index("vocals")
+    except ValueError:
+        vocal_idx = -1
+    with torch.no_grad():
+        for start in range(0, waveform.shape[-1], max_frames):
+            chunk = waveform[:, :, start : start + max_frames]
+            out = model(chunk)
+            vocals.append(out[:, vocal_idx, :, :].detach().cpu())
+    vocal = torch.cat(vocals, dim=-1)[0].numpy().T
+    return vocal.astype(np.float32, copy=False), int(_VOCAL_SEPARATION_SAMPLE_RATE or target_sr)
+
+
+def _append_skip_example(stats, message):
+    if len(stats["skip_examples"]) < TRAIN_AUDIO_MAX_SKIP_EXAMPLES:
+        stats["skip_examples"].append(message)
+
+
+def _write_training_audio(
+    samples,
+    sample_rate,
+    target_dir,
+    prefix,
+    copied,
+    auto_clean=True,
+    auto_extract_vocals=False,
+):
+    if auto_extract_vocals:
+        samples, sample_rate = _extract_training_vocals(samples, sample_rate)
+    if auto_clean:
+        samples, reason = _audio_array_to_clean_mono(samples, sample_rate)
+        if samples is None:
+            return copied, reason
+    else:
+        samples = np.asarray(samples, dtype=np.float32)
+        if samples.size == 0:
+            return copied, "empty"
+        if samples.ndim == 2 and samples.shape[0] <= 8 and samples.shape[0] < samples.shape[1]:
+            samples = samples.T
+        samples = np.nan_to_num(samples, nan=0.0, posinf=0.0, neginf=0.0)
+        samples = np.clip(samples, -1.0, 1.0)
+    copied += 1
+    import soundfile as sf
+
+    sf.write(target_dir / f"{prefix}_{copied:05d}.wav", samples, int(sample_rate))
+    return copied, "ok"
+
+
+def _copy_audio_path_to_dataset(
+    path,
+    target_dir,
+    copied,
+    stats,
+    auto_clean=True,
+    auto_extract_vocals=False,
+):
     source = Path(path).expanduser()
     if not source.is_absolute():
         source = (_input_directory() / source).resolve()
@@ -618,17 +759,44 @@ def _copy_audio_path_to_dataset(path, target_dir, copied):
         return copied
     if source.is_dir():
         for child in sorted(source.rglob("*")):
-            copied = _copy_audio_path_to_dataset(child, target_dir, copied)
+            copied = _copy_audio_path_to_dataset(
+                child, target_dir, copied, stats, auto_clean, auto_extract_vocals
+            )
         return copied
     if source.suffix.lower() not in TRAINSET_AUDIO_EXTENSIONS:
         return copied
-    copied += 1
-    destination = target_dir / f"path_audio_{copied:05d}{source.suffix.lower()}"
-    shutil.copy2(source, destination)
+    try:
+        import librosa
+
+        samples, sample_rate = librosa.load(str(source), sr=None, mono=False)
+        copied, reason = _write_training_audio(
+            samples,
+            sample_rate,
+            target_dir,
+            "path_audio",
+            copied,
+            auto_clean,
+            auto_extract_vocals,
+        )
+    except Exception as exc:
+        reason = f"decode_failed {exc}"
+    stats["seen"] += 1
+    if reason == "ok":
+        stats["kept"] += 1
+    else:
+        stats["skipped"] += 1
+        _append_skip_example(stats, f"{source.name}: {reason}")
     return copied
 
 
-def _write_audio_dict_to_dataset(audio, target_dir, copied):
+def _write_audio_dict_to_dataset(
+    audio,
+    target_dir,
+    copied,
+    stats,
+    auto_clean=True,
+    auto_extract_vocals=False,
+):
     if not isinstance(audio, dict) or "waveform" not in audio:
         return copied
     waveform = audio.get("waveform")
@@ -644,18 +812,35 @@ def _write_audio_dict_to_dataset(audio, target_dir, copied):
     elif waveform.dim() != 3:
         waveform = waveform.reshape(1, 1, -1)
 
-    import soundfile as sf
-
     for batch_idx in range(waveform.shape[0]):
         item = waveform[batch_idx].clamp(-1.0, 1.0)
         samples = item.numpy().T
-        copied += 1
-        sf.write(target_dir / f"audio_input_{copied:05d}.wav", samples, sample_rate)
+        copied, reason = _write_training_audio(
+            samples,
+            sample_rate,
+            target_dir,
+            "audio_input",
+            copied,
+            auto_clean,
+            auto_extract_vocals,
+        )
+        stats["seen"] += 1
+        if reason == "ok":
+            stats["kept"] += 1
+        else:
+            stats["skipped"] += 1
+            _append_skip_example(stats, f"audio_input_{batch_idx}: {reason}")
     return copied
 
 
-def _materialize_audio_training_dataset(audio, target_dir):
+def _materialize_audio_training_dataset(
+    audio,
+    target_dir,
+    auto_clean=True,
+    auto_extract_vocals=False,
+):
     copied = 0
+    stats = {"seen": 0, "kept": 0, "skipped": 0, "skip_examples": []}
 
     def visit(value):
         nonlocal copied
@@ -663,7 +848,9 @@ def _materialize_audio_training_dataset(audio, target_dir):
             return
         if isinstance(value, dict):
             if "waveform" in value:
-                copied = _write_audio_dict_to_dataset(value, target_dir, copied)
+                copied = _write_audio_dict_to_dataset(
+                    value, target_dir, copied, stats, auto_clean, auto_extract_vocals
+                )
                 return
             for key in ("audio", "audios", "file", "files", "path", "paths", "filename", "filenames"):
                 if key in value:
@@ -674,12 +861,24 @@ def _materialize_audio_training_dataset(audio, target_dir):
                 visit(item)
             return
         if isinstance(value, (str, os.PathLike)):
-            copied = _copy_audio_path_to_dataset(value, target_dir, copied)
+            copied = _copy_audio_path_to_dataset(
+                value, target_dir, copied, stats, auto_clean, auto_extract_vocals
+            )
 
     visit(audio)
     if copied == 0:
-        raise ValueError("可选 audio 输入没有解析到可训练的音频。请连接 AUDIO、音频路径、音频路径列表或填写 trainset_dir。")
-    return copied
+        raise ValueError("训练音频清洗后为空。请提供响度正常、非静音的干净人声音频。")
+    return stats
+
+
+def _prepare_training_dataset(source_dir, target_dir, auto_clean=True, auto_extract_vocals=False):
+    stats = {"seen": 0, "kept": 0, "skipped": 0, "skip_examples": []}
+    copied = _copy_audio_path_to_dataset(
+        source_dir, target_dir, 0, stats, auto_clean, auto_extract_vocals
+    )
+    if copied == 0:
+        raise ValueError("训练目录清洗后为空。请提供响度正常、非静音的干净人声音频。")
+    return stats
 
 
 def _resolve_pretrained_path(path_text):
@@ -1499,6 +1698,20 @@ class RunningHubRVCOneClickTrain:
                         "tooltip": "是否每次保存 checkpoint 时额外导出可推理的小模型。关闭时仍会在训练结束导出最终模型。",
                     },
                 ),
+                "audio_auto_clean": (
+                    "BOOLEAN",
+                    {
+                        "default": True,
+                        "tooltip": "训练前自动清洗音频：转单声道、去静音、过滤过短/过低音量片段，并做峰值归一化。建议保持开启。",
+                    },
+                ),
+                "auto_extract_vocals": (
+                    "BOOLEAN",
+                    {
+                        "default": True,
+                        "tooltip": "训练前先用 Demucs/HDEMUCS 提取人声。仅在素材带伴奏时开启；干声训练集建议关闭以避免额外失真。",
+                    },
+                ),
             },
         }
 
@@ -1524,6 +1737,8 @@ class RunningHubRVCOneClickTrain:
         save_latest_only=True,
         cache_dataset_in_gpu=False,
         save_every_weights=False,
+        audio_auto_clean=True,
+        auto_extract_vocals=True,
     ):
         trainset_dir = _first_list_value(trainset_dir)
         experiment_name = _first_list_value(experiment_name)
@@ -1544,16 +1759,30 @@ class RunningHubRVCOneClickTrain:
         save_latest_only = _first_list_value(save_latest_only)
         cache_dataset_in_gpu = _first_list_value(cache_dataset_in_gpu)
         save_every_weights = _first_list_value(save_every_weights)
+        audio_auto_clean = _first_list_value(audio_auto_clean)
+        auto_extract_vocals = _first_list_value(auto_extract_vocals)
 
         if sample_rate == "32k" and version == "v1":
             raise ValueError("v1 不支持 32k 训练，请选择 v2 或改用 40k/48k。")
         _ensure_training_layout()
-        dataset_dir = _resolve_training_dataset(trainset_dir)
+        source_dataset_dir = _resolve_training_dataset(trainset_dir)
         trainset_tempdir = None
-        if dataset_dir is None:
-            trainset_tempdir = tempfile.TemporaryDirectory(prefix="rvc_trainset_")
-            extracted = _materialize_audio_training_dataset(audio, Path(trainset_tempdir.name))
-            dataset_dir = Path(trainset_tempdir.name)
+        trainset_tempdir = tempfile.TemporaryDirectory(prefix="rvc_trainset_clean_")
+        dataset_dir = Path(trainset_tempdir.name)
+        if source_dataset_dir is not None:
+            audio_stats = _prepare_training_dataset(
+                source_dataset_dir,
+                dataset_dir,
+                bool(audio_auto_clean),
+                bool(auto_extract_vocals),
+            )
+        else:
+            audio_stats = _materialize_audio_training_dataset(
+                audio,
+                dataset_dir,
+                bool(audio_auto_clean),
+                bool(auto_extract_vocals),
+            )
         exp_name = _safe_experiment_name(experiment_name)
         output_name = _safe_path_component(save_name, exp_name)
         output_dir = (_output_directory() / "RVC" / output_name).resolve()
@@ -1594,8 +1823,18 @@ class RunningHubRVCOneClickTrain:
             f"version={version}, sample_rate={sample_rate}, use_f0={use_f0}",
             f"gpus={gpus or 'cpu'}",
         ]
-        if trainset_tempdir is not None:
-            info.append(f"audio_input_files={extracted}")
+        info.append(
+            "audio_cleaning="
+            f"enabled={bool(audio_auto_clean)} "
+            f"extract_vocals={bool(auto_extract_vocals)} "
+            f"seen={audio_stats['seen']} kept={audio_stats['kept']} skipped={audio_stats['skipped']}"
+        )
+        if audio_stats["skip_examples"]:
+            info.append(
+                "audio_cleaning_skipped="
+                + "; ".join(audio_stats["skip_examples"][:5])
+                + ("; ..." if len(audio_stats["skip_examples"]) > 5 else "")
+            )
 
         _run_rvc_command(
             [
