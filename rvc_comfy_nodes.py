@@ -24,16 +24,6 @@ try:
 except Exception:  # pragma: no cover - only used outside ComfyUI for import checks.
     folder_paths = None
 
-try:
-    import aiohttp
-    from aiohttp import web
-    from server import PromptServer
-except Exception:  # pragma: no cover - only used outside ComfyUI.
-    aiohttp = None
-    PromptServer = None
-    web = None
-
-
 PLUGIN_ROOT = Path(__file__).resolve().parent
 DEFAULT_RVC_PROJECT_ROOT = PLUGIN_ROOT / "rvc_source"
 RVC_PROJECT_ROOT = Path(
@@ -55,7 +45,6 @@ NO_MODEL_LABEL = "<no .pth model found in models/RVC>"
 _RVC_LOCK = threading.RLock()
 _MODEL_CACHE = {}
 _RVC_MODULE_PREFIXES = ("configs", "infer", "i18n")
-_UPLOAD_ROUTE_REGISTERED = False
 MAX_ZIP_UPLOAD_BYTES = 150 * 1024 * 1024
 MAX_ZIP_EXTRACT_BYTES = 4 * 1024 * 1024 * 1024
 MAX_ZIP_MODEL_FILES = 128
@@ -274,76 +263,6 @@ def _load_uploaded_rvc_model(zip_file, device, is_half):
         f"Index: {index_path or 'not found'}\n"
         f"Extracted to: {target_dir}"
     )
-
-
-def _register_upload_route():
-    global _UPLOAD_ROUTE_REGISTERED
-    prompt_server = getattr(PromptServer, "instance", None) if PromptServer is not None else None
-    if _UPLOAD_ROUTE_REGISTERED or prompt_server is None or web is None or aiohttp is None:
-        return
-
-    @prompt_server.routes.post("/extensions/ComfyUI_RH_RVC/upload_zip_model")
-    async def upload_zip_model(request):
-        tmp_path = None
-        try:
-            reader = await request.multipart()
-            uploaded_file = None
-            async for part in reader:
-                if part.name == "file":
-                    uploaded_file = part
-                    break
-            if uploaded_file is None:
-                return web.json_response({"success": False, "error": "missing file"}, status=400)
-
-            filename = Path(getattr(uploaded_file, "filename", "") or "").name
-            if not filename.lower().endswith(".zip"):
-                return web.json_response({"success": False, "error": "only .zip files are supported"}, status=400)
-
-            stored_name = f"{_safe_path_component(Path(filename).stem, 'rvc_model')}.zip"
-            zip_path = _input_directory() / stored_name
-            zip_path.parent.mkdir(parents=True, exist_ok=True)
-            tmp_path = zip_path.with_name(f".{zip_path.name}.tmp")
-
-            total_size = 0
-            too_large = False
-            with open(tmp_path, "wb") as output:
-                while True:
-                    chunk = await uploaded_file.read_chunk(size=1024 * 1024)
-                    if not chunk:
-                        break
-                    total_size += len(chunk)
-                    if total_size > MAX_ZIP_UPLOAD_BYTES:
-                        too_large = True
-                        continue
-                    if not too_large:
-                        output.write(chunk)
-
-            if too_large:
-                return web.json_response(
-                    {"success": False, "error": "zip file is too large, max 150MB"},
-                    status=400,
-                )
-
-            try:
-                with zipfile.ZipFile(tmp_path, "r") as archive:
-                    archive.testzip()
-            except BadZipFile:
-                return web.json_response({"success": False, "error": "invalid zip file"}, status=400)
-
-            os.replace(tmp_path, zip_path)
-            tmp_path = None
-            return web.json_response({"success": True, "name": stored_name, "subfolder": "", "type": "input"})
-        except Exception as exc:
-            return web.json_response({"success": False, "error": str(exc)}, status=500)
-        finally:
-            if tmp_path is not None:
-                with contextlib.suppress(OSError):
-                    Path(tmp_path).unlink()
-
-    _UPLOAD_ROUTE_REGISTERED = True
-
-
-_register_upload_route()
 
 
 def _list_weight_models():
@@ -1529,6 +1448,7 @@ class RunningHubRVCOneClickTrain:
         "训练流程日志摘要和生成文件位置。输出文件写入 ComfyUI output/RVC/<save_name>/。",
     )
     OUTPUT_NODE = True
+    RH_INPUT_AUDIT = True
     INPUT_IS_LIST = True
     FUNCTION = "train"
     CATEGORY = CATEGORY
@@ -2002,8 +1922,12 @@ class RunningHubRVCOneClickTrain:
         info.append(_read_training_log_summary(train_log))
         if trainset_tempdir is not None:
             trainset_tempdir.cleanup()
+        output_file = _output_file_info(zip_output)
         return {
-            "ui": {"rvc_zip": [_output_file_info(zip_output)]},
+            "ui": {
+                "images": [output_file],
+                "text": [os.path.join(output_file["subfolder"], output_file["filename"])],
+            },
             "result": ("\n".join(part for part in info if part),),
         }
 

@@ -1,7 +1,7 @@
 # ComfyUI RH RVC
 
-- [RunningHub 中国站](https://www.runninghub.cn/?inviteCode=rh-v1367)
-- [RunningHub 国际站](https://www.runninghub.ai/?inviteCode=rh-v1367)
+[![RunningHub 中国站](https://img.shields.io/badge/RunningHub-%E4%B8%AD%E5%9B%BD%E7%AB%99%20Online%20Platform-2f80ed?labelColor=333333)](https://www.runninghub.cn/?inviteCode=rh-v1367)
+[![RunningHub 国际站](https://img.shields.io/badge/RunningHub-%E5%9B%BD%E9%99%85%E7%AB%99%20Online%20Platform-2f80ed?labelColor=333333)](https://www.runninghub.ai/?inviteCode=rh-v1367)
 
 ![License](https://img.shields.io/badge/License-Apache%202.0-green)
 
@@ -195,8 +195,11 @@ ComfyUI/output/RVC/<save_name>/<save_name>.zip
 
 - [RunningHub 中国站](https://www.runninghub.cn/?inviteCode=rh-v1367)
 - [RunningHub 国际站](https://www.runninghub.ai/?inviteCode=rh-v1367)
-- [RVC WebUI 原项目](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI)
-- [RVC 核心资产 Hugging Face](https://huggingface.co/lj1995/VoiceConversionWebUI)
+- 插件仓库：[ComfyUI_RH_RVC](https://github.com/RH-RunningHub/ComfyUI_RH_RVC)
+- 上游代码仓库：[Retrieval-based-Voice-Conversion-WebUI](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI)
+- 核心模型下载页：[lj1995/VoiceConversionWebUI](https://huggingface.co/lj1995/VoiceConversionWebUI)
+- 插件协议：[Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+- 上游协议：[MIT License](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/main/LICENSE)
 
 ## 致谢
 

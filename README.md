@@ -1,7 +1,7 @@
 # ComfyUI RH RVC
 
-- [RunningHub China](https://www.runninghub.cn/?inviteCode=rh-v1367)
-- [RunningHub International](https://www.runninghub.ai/?inviteCode=rh-v1367)
+[![RunningHub China](https://img.shields.io/badge/RunningHub-China%20Online%20Platform-2f80ed?labelColor=333333)](https://www.runninghub.cn/?inviteCode=rh-v1367)
+[![RunningHub International](https://img.shields.io/badge/RunningHub-International%20Online%20Platform-2f80ed?labelColor=333333)](https://www.runninghub.ai/?inviteCode=rh-v1367)
 
 ![License](https://img.shields.io/badge/License-Apache%202.0-green)
 
@@ -191,12 +191,15 @@ This project is licensed under the [Apache License 2.0](LICENSE). Redistribution
 
 The bundled RVC inference source is based on [Retrieval-based-Voice-Conversion-WebUI](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI), which is distributed by its upstream project under the MIT License.
 
-## Links
+## Source and Related Links
 
 - [RunningHub China](https://www.runninghub.cn/?inviteCode=rh-v1367)
 - [RunningHub International](https://www.runninghub.ai/?inviteCode=rh-v1367)
-- [Original RVC WebUI Project](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI)
-- [RVC core assets on Hugging Face](https://huggingface.co/lj1995/VoiceConversionWebUI)
+- Plugin repository: [ComfyUI_RH_RVC](https://github.com/RH-RunningHub/ComfyUI_RH_RVC)
+- Upstream repository: [Retrieval-based-Voice-Conversion-WebUI](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI)
+- Core model assets: [lj1995/VoiceConversionWebUI](https://huggingface.co/lj1995/VoiceConversionWebUI)
+- Plugin license: [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+- Upstream license: [MIT License](https://github.com/RVC-Project/Retrieval-based-Voice-Conversion-WebUI/blob/main/LICENSE)
 
 ## Acknowledgements
 
