@@ -449,6 +449,11 @@ def _run_rvc_command(
 
     if process.returncode != 0 and not allow_training_exit:
         tail = _read_text_tail(log_path, max_chars=4000)
+        cause = _extract_failure_cause(tail)
+        if cause:
+            raise RuntimeError(
+                f"RVC 命令执行失败，退出码 {process.returncode}，关键报错:\n{cause}\n--- 日志尾部 ---\n{tail}"
+            )
         raise RuntimeError(f"RVC 命令执行失败，退出码 {process.returncode}:\n{tail}")
     return process.returncode
 
@@ -477,6 +482,64 @@ def _read_text_tail(path, max_chars=8000):
         return ""
     text = path.read_text(encoding="utf-8", errors="ignore")
     return text[-max_chars:]
+
+
+_FAILURE_KEYWORDS = (
+    "OutOfMemoryError",
+    "CUDA out of memory",
+    "RuntimeError:",
+    "ValueError:",
+    "FileNotFoundError:",
+    "AssertionError:",
+    "KeyError:",
+    "MemoryError",
+    "Killed",
+)
+
+
+def _extract_failure_cause(text, max_lines=5, max_line_chars=300):
+    """从命令/训练日志中提取决定性报错行。
+
+    训练子进程崩溃（如 CUDA OOM）时父脚本往往正常退出，真实原因只存在于
+    日志正文中且被大量 FutureWarning 淹没；把关键行提到报错首行，
+    避免用户从几千字符的 tail 里自己找。
+    """
+    if not text:
+        return ""
+    causes = []
+    for line in text.splitlines():
+        stripped = line.strip()
+        if not stripped or len(stripped) > 2000:
+            continue
+        if any(keyword in stripped for keyword in _FAILURE_KEYWORDS):
+            if stripped not in causes:
+                causes.append(stripped[:max_line_chars])
+    if not causes:
+        return ""
+    return "\n".join(causes[:max_lines])
+
+
+def _clean_stale_training_artifacts(exp_dir, output_dir, output_name):
+    """训练开始前清理同名实验的残留产物，返回删除条目数。
+
+    上次失败/中断留下的 spec、f0 特征缓存与 checkpoint 会污染本次训练；
+    更隐蔽的是残留的旧 .pth/.index/.zip 会让"训练结束但没有找到导出的
+    模型"检查误判成功（拿到的是上一轮的旧模型），必须先移除。
+    """
+    removed = 0
+    exp_dir = Path(exp_dir)
+    if exp_dir.exists():
+        shutil.rmtree(exp_dir)
+        removed += 1
+    exp_dir.mkdir(parents=True, exist_ok=True)
+
+    output_dir = Path(output_dir)
+    if output_dir.is_dir():
+        for stale in output_dir.glob(f"{output_name}.*"):
+            if stale.is_file():
+                stale.unlink()
+                removed += 1
+    return removed
 
 
 def _read_training_log_summary(path, max_errors=5):
@@ -1733,7 +1796,7 @@ class RunningHubRVCOneClickTrain:
         output_model_path = output_dir / f"{output_name}.pth"
         output_index_path = output_dir / f"{output_name}.index"
         exp_dir = RVC_PROJECT_ROOT / "logs" / exp_name
-        exp_dir.mkdir(parents=True, exist_ok=True)
+        cleaned_count = _clean_stale_training_artifacts(exp_dir, output_dir, output_name)
         train_log = exp_dir / "comfy_train.log"
         train_log.write_text("", encoding="utf-8")
 
@@ -1772,6 +1835,7 @@ class RunningHubRVCOneClickTrain:
             f"extract_vocals={bool(auto_extract_vocals)} "
             f"seen={audio_stats['seen']} kept={audio_stats['kept']} skipped={audio_stats['skipped']}"
         )
+        info.append(f"stale_cleanup=removed={cleaned_count}")
         if audio_stats["skip_examples"]:
             info.append(
                 "audio_cleaning_skipped="
@@ -1923,6 +1987,11 @@ class RunningHubRVCOneClickTrain:
         exported_model = output_model_path
         if not exported_model.exists():
             tail = _read_text_tail(exp_dir / "train.log", max_chars=4000) or _read_text_tail(train_log)
+            cause = _extract_failure_cause(tail)
+            if cause:
+                raise RuntimeError(
+                    f"训练失败，未生成模型 {exported_model}，关键报错:\n{cause}\n--- 日志尾部 ---\n{tail}"
+                )
             raise RuntimeError(f"训练结束但没有找到导出的模型: {exported_model}\n{tail}")
         info.append(f"model={exported_model}")
 
